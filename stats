@@ -1,0 +1,243 @@
+#!/bin/bash
+#_____Homework_1______________
+#_____Stats: Shell Script for_
+#_____calculating average and_
+#_____median on tab delimited_
+#_____data____________________
+#_____Author: Benjamin Fondell_
+#_____Date: 7/8/2017__________
+
+
+#_____________________________INPUT_HANDLING__________________
+
+#__# of Arguments Handler___________________________________
+#checks that option input is not greater than 2 or less than 1
+
+if [ "$#" -gt 2 -o "$#" -lt 1 ]
+then
+	echo "Useage: stats {-rows|-cols} {file}" 1>&2
+	exit 1
+fi
+
+
+#__# option input handler_____________________________________
+#checks that the first letter of the option is either "c" or "r"
+
+if [[ "${1:0:2}" == '-r' || "${1:0:2}" == '-c' ]]
+then
+:
+else
+	echo "Useage: stats {-rows|-cols} {file}" 1>&2
+        exit 1
+fi
+
+#_setup for temp files__________________________________________________
+
+# sets the temp file names to include the pid allows for simultaneous runs
+
+tempFile=$$temp
+sorted=$$sorts
+columns=$$cols
+
+# sets a trap for unexpected exits. Deletes temp files when trap is activated
+ 
+trap "rm -f $cols $sorted $tempFile; exit" 1 2 15
+
+#_Handles unreadable files______________________________________________
+
+# if the file passed to the shell script is not readable display error message
+
+if  [ "$#" -eq 2 -a ! -r "$2" ]
+then
+	echo "Error: cannot read ${2}" 1>&2
+	exit 1
+fi
+
+#_Reads file to a temporary file__________________________________
+
+# This if/else will read from a file into a temporary file or read from stdin into a temporary file
+
+if [ "$#" -eq 1 ]
+then
+	while read -r line 
+	do 
+		echo $line >> $tempFile
+	done
+else
+	cat "$2" > $tempFile  
+fi
+
+#_____________________CALCULATE STATISTICS FOR ROWS OF DATA______________________
+# Takes data from tempFile and processes it by rows.
+# 1. That input option row was selected
+# 2. Loops through by line of tempFile with while statement
+# 3. Sorts each line which will be used for calculating median
+# 4. For loop passes through each sorted line to calculate the sum of the line and count of values
+# 5. Calculate average, seperates arithmetic expressions for readability 
+# 6. Calculate median , finds midpoint of sorted row then cuts the value out of the text row at the midpoint 
+# 7. displays the mean and median for that line
+# 8. cleans up temporary sorted line
+# 9. loops back over through next line until end of file, repeats 3-9
+
+
+if [[ "${1:0:2}" == '-r' ]]
+then 
+
+	#sets up result titles
+	echo "Average	Median"
+	
+	#loops through tempFile
+	while read -r line
+	do
+		
+		#Sorts input line
+		echo $(printf "%d\n" $line | sort -n ) | tr ' ' \\t > $sorted
+	
+		#declares values if first loop reinitializes to 0 if loop > 1
+		sum=0
+		count=0
+		median=0
+
+		#Calculates sum and Count
+		for i in $line
+		do
+	
+			sum=`expr $sum + $i`
+			count=`expr $count + 1`
+		done 
+	
+		#Calculates Average
+		mean=`expr $count / 2`
+		mean=`expr $sum + $mean`
+		mean=`expr $mean / $count`
+	
+		#Calculates Median
+		#find midpoint of line	
+		mid=$((1+$count/2))
+		#cuts value out of line at midpoint
+		median=$( cut -f$mid -d$'\t' $sorted)	
+		
+		#displays calculation results in column format
+		echo "$mean	$median"
+	
+	#cleans up the sorted line file	
+	rm -f $sorted
+	
+	done < $tempFile
+fi
+
+#_____________________CALCULATE STATISTICS FOR COLUMNS OF DATA______________________
+# Takes data from tempFile and processes it by columns.
+# 1. If input option is -c... then process the data by column
+# 2. calculate the number of columns
+# 3. create a temporary file named columns
+# 4. loop through the columns of tempFile cutting the data from tempFile by column and placing it as rows in temporary columns file
+# 5. loop through by line of newly created columns file
+# 6. Sorts each line which will be used for calculating median
+# 7. For loop passes through each sorted line to calculate the sum of the line and count of values
+# 8. Calculate average, seperates arithmetic expressions for readability 
+# 9. Display averages of each column in a tab seperated row
+# 10. clean up sorted temporary file
+# 11. Loop through and read lines from columns file
+# 12. sort each line of columns file and place the sorted line in temporary file sorted
+# 13. loop through each line determining the count of values in the line
+# 14. calculate median of line by finding midpoint and then cutting the value out at the midpont of the line
+# 15. display medians of the columns in tab seperated row
+# 16. clean up sorted temporary file
+if [[ "${1:0:2}" == '-c' ]]
+then
+
+	
+	
+	curcol=1
+	numcols=$(head -n 1 $tempFile | wc -w)
+	touch $columns
+	while [ $curcol -le $numcols ]
+	do
+		cut -f $curcol $tempFile | tr '\n' '\t' >> $columns 
+		(( curcol++ ))
+		echo -e "">>$columns
+	done
+	
+	#Displays title of the following resulting averages
+	echo "Averages:"
+
+	#Reads Lines of columns
+        while  read line
+        do
+		
+		#Sorts input line
+                echo $(printf "%d\n" $line | sort -n ) | tr ' ' \\t > $sorted
+		
+		#declares values if first loop reinitializes to 0 if loop > 1
+                sum=0
+                count=0
+                median=0
+
+                #Calculates sum and Count
+                for i in $line
+                do
+
+                        sum=`expr $sum + $i`
+                        count=`expr $count + 1`
+                done
+
+                #calculates Average
+                mean=`expr $count / 2`
+                mean=`expr $sum + $mean`
+                mean=`expr $mean / $count`
+		
+		#displays averages in row
+                printf "%s\t" "$mean"
+        
+	#clean up sorted
+	rm -f $sorted
+
+	done < $columns
+	
+	#newline better readability of results
+	echo ""
+	
+	#displays title of the following resulting medians
+	echo "Medians:"
+	
+	#reads lines of columns
+	while read line
+	do
+		#sorts input line
+		echo $(printf "%d\n" $line | sort -n ) | tr ' ' \\t > $sorted
+		
+		#declares values if first loop reinitializes to 0 if loop > 1
+		count=0
+		median=0
+
+		#calculates count
+		for i in $line
+                do
+                        count=`expr $count + 1`
+                done
+
+		
+		#Calculates Median
+		#find midpoint of line      
+                mid=$((1+$count/2))
+		#cuts value out of line at midpoint
+                median=$( cut -f$mid -d$'\t' $sorted)
+ 		
+		#display medians of columns in tab seperated row
+		printf "%s\t" "$median"
+	
+	#clean up sorted
+	rm -f $sorted
+	
+	done < $columns
+
+	#newline better readability of results
+	echo ""
+	
+	#clean up columns
+	rm -f $columns
+fi
+
+#final clean up of temp files upon finishing of script
+rm -f $tempFile $columns $sorted

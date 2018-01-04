@@ -1,0 +1,15 @@
+
+
+
+
+Author: Ben Fondell
+
+CS 340
+
+Program_4 : OTP
+
+To compile this program type make and the makefile will compile the sorce code.
+
+You may also just use the compileall.
+
+Wasnt able to solve how to authorize encode and decode for my program.
